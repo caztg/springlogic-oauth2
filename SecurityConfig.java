@@ -7,6 +7,7 @@ import cn.springlogic.user.jpa.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.authentication.configurers.GlobalAuthenticationConfigurerAdapter;
@@ -29,10 +30,7 @@ import org.springframework.security.oauth2.config.annotation.web.configuration.R
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerEndpointsConfigurer;
 import org.springframework.security.oauth2.config.annotation.web.configurers.ResourceServerSecurityConfigurer;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 /**
  * Created by admin on 2017/4/12.
@@ -40,12 +38,14 @@ import java.util.Set;
 @Configuration
 class WebSecurityConfiguration extends GlobalAuthenticationConfigurerAdapter {
 
+
     @Autowired
     private UserRepository userRepository;
 
     private Collection<GrantedAuthority> getAuthorities(User user){
         List<GrantedAuthority> authList = new ArrayList<GrantedAuthority>();
         Set<Role> roles = user.getRoles();
+       // List<Role> roles = user.getRoles();
         for (Role r:roles) {
             authList.add(new SimpleGrantedAuthority(r.getName()));
         }
@@ -70,6 +70,8 @@ class WebSecurityConfiguration extends GlobalAuthenticationConfigurerAdapter {
         // .passwordE
         //auth.inMemoryAuthentication().withUser("user").password("user").roles("USER");
     }
+
+
 
     @Bean
     public UserDetailsService userDetailsService() {
@@ -99,7 +101,7 @@ class WebSecurityConfiguration extends GlobalAuthenticationConfigurerAdapter {
                      */
 
 
-
+                   /*
                     return new org.springframework.security.core.userdetails.User(
                             user.getUsername(),
                             user.getPassword(),
@@ -111,6 +113,20 @@ class WebSecurityConfiguration extends GlobalAuthenticationConfigurerAdapter {
                             getAuthorities(user)  //根据用户拿出里面的角色
 
                     );
+                    */
+                    return new DiyUser(
+                            user.getId(),
+                            user.getNickName(),
+                            user.getUsername(),
+                            user.getPassword(),
+                            true,
+                            true,
+                            true,
+                            true,
+                            // AuthorityUtils.createAuthorityList("ROLE_USER")  //  手动添加进角色
+                            getAuthorities(user)  //根据用户拿出里面的角色
+
+                    );
                 } else {
                     throw new UsernameNotFoundException("could not find the user '"
                             + username + "'");
@@ -118,6 +134,7 @@ class WebSecurityConfiguration extends GlobalAuthenticationConfigurerAdapter {
             }
         };
     }
+
 
 }
 
@@ -133,26 +150,59 @@ class ResourceServerConfiguration extends ResourceServerConfigurerAdapter {
     @Override
     public void configure(HttpSecurity http) throws Exception {
         http
-                     /*
+
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .and()
                 .requestMatchers().antMatchers("/api/**")
-                .and()
-                 .authorizeRequests()
-                .antMatchers("/api/communicate:verification/**").permitAll()//发送验证码
-                .and()
-                 .authorizeRequests()
-                .antMatchers("/api/social:publication/**").permitAll()//不用登陆也可看到广场内容
-                .and()
-                .authorizeRequests()
-                .antMatchers("/api/user/**").permitAll()//进行注册相关处理
+
+
+
+                // 相关处理
                 .and()
                 .authorizeRequests()
                 //.antMatchers("/se").access("#oauth2.hasScope('write')");
-                .antMatchers("/api/**").access("hasRole('ROLE_USER')");//角色含有 ROLE_USER就可以访问
-                   */
+                .antMatchers("/api/basket:basket-disheses/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")//角色至少 含有 ROLE_USER才可以访问 (正常用户是拥有该角色,除非后台屏蔽)
+                 .and()
+                .authorizeRequests()
+                .antMatchers("/api/article/publish").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.DELETE,"/api/social:publication/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers("/api/dishes:dishes-**/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers("/api/message:**/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.POST,"/api/social:**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.DELETE,"/api/social:**/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.PATCH,"/api/user/forgetpwd").permitAll()
+                .and()
+
+                .authorizeRequests()
+                .antMatchers(HttpMethod.PATCH,"/api/user/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.POST,"/api/expressaddress/**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.POST,"/api/address:**").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.POST,"/api/vip:prizelog").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')")
+                .and()
+                .authorizeRequests()
+                .antMatchers(HttpMethod.POST,"/api/vip:experiencetasklog").access("hasRole('ROLE_USER') or hasRole('ROLE_ADMIN')");
 
 
+                /*
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                 .and()
                 .requestMatchers().antMatchers("/sei")
@@ -160,7 +210,7 @@ class ResourceServerConfiguration extends ResourceServerConfigurerAdapter {
                 .authorizeRequests()
                 //.antMatchers("/se").access("#oauth2.hasScope('write')");
                 .antMatchers("/sei").access("hasRole('ROLE_USER')");//角色含有 ROLE_USER就可以访问
-
+              */
 
     }
 
@@ -211,6 +261,7 @@ class OAuth2ServerConfig extends AuthorizationServerConfigurerAdapter {
                 .authorizedGrantTypes("password", "authorization_code", "client_credentials", "refresh_token");
 
         clientBuilder.authorities(roleStrs).scopes("write").resourceIds(applicationName).secret("secret");
+
 
         /*
         // refreshTokenValiditySeconds = 2592000;       //refresh_token 的超时时间  默认2592000秒
